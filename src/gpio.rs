@@ -1,3 +1,9 @@
+/// Memory representation of Odroid C2 GPIO interface.
+///
+/// This module consists of two important structs:
+///
+/// * `OdroidC2GPIO` - represents the whole GPIO interface. To operate on a pin you take single pin representation using `OdroidC2GPIO::pin` function.
+/// * `MemoryPin` - represents one physical pin of GPIO interface. You pass this pin to appropriate methods of your `OdroidC2GPIO` instance.
 use byteorder::{ByteOrder, NativeEndian};
 use memmap::{MmapMut, MmapOptions};
 use nix::fcntl::{open, OFlag};
@@ -12,12 +18,15 @@ use thiserror::Error;
 
 use crate::pins;
 
+/// Enum representing all possible errors returned by this crate.
+///
+/// `OpenFailed` may occur when there is an error trying to open appropriate devices (`/dev/mem` for root, `/dev/gpiomem` for non-root). This is usually a problem of permissions to read these devices.
+/// `MapError` occurs when memory mapping fails. This may be caused by other GPIO kernel drivers interfering with memory-mapping process.
+/// `PinError` can occur when you pass invalid pin value to `OdroidC2GPIO::pin` function.
 #[derive(Error, Debug)]
 pub enum OdroidC2GPIOError {
     #[error("failed to open descriptor")]
     OpenFdFailed(#[source] nix::Error),
-    #[error("failed to open device file")]
-    OpenFailed(#[source] io::Error),
     #[error("failed to map device memory")]
     MapError(#[source] io::Error),
     #[error("pin not in any range known by the library")]
@@ -42,6 +51,10 @@ impl DerefMut for Memory {
     }
 }
 
+/// Specifies the direction of a given pin.
+///
+/// In an `Input` mode you can read values from the pin and the line is set to low mode.
+/// In an `Output` mode you can write values to the pin.
 #[derive(Copy, Clone, Debug)]
 pub enum PinDirection {
     Input,
@@ -141,6 +154,24 @@ impl PinRegisters {
     }
 }
 
+/// Represents one physical pin in a memory-mapped model of the library.
+///
+/// This representation allows to do certain checks needed to operate on the pin only once.
+/// All `OdroidC2GPIO` methods for reading, writing and pin management accepts this struct as an argument.
+///
+/// # Example
+/// ```
+/// use c2_mmap_gpio::{gpio::{OdroidC2GPIO, MemoryPin, PinDirection, PinValue}, pins::Pin};
+///
+/// fn main() -> Result<(), dyn std::error::Error> {
+///   let mut gpio = OdroidC2GPIO::new()?;
+///   // Get memory representation of physical pin 7.
+///   let pin: MemoryPin = OdroidC2GPIO::pin(Pin::Phy7)?;
+///   gpio.direction(&pin, PinDirection::Output);
+///   gpio.write(&pin, PinValue::High);
+///
+///   Ok(())
+/// }
 #[derive(Debug)]
 pub struct MemoryPin {
     pin: pins::Pin,
@@ -207,16 +238,20 @@ impl MemoryPin {
 }
 
 impl Memory {
-    pub fn new(map: MmapMut) -> Self {
+    fn new(map: MmapMut) -> Self {
         Self { map }
     }
 }
 
+/// Struct representing the memory-mapped model of Odroid C2 pins.
+///
+/// It contains the memory-mapped region of device memory which allows to set up registers to operate GPIO pins. That means your requests to read/write/manage pins needs to go through this struct.
 pub struct OdroidC2GPIO {
     _file_handle: File,
     memory: Memory,
 }
 
+/// Enum representing possible values for a pin. It corresponds to low and high voltage states of GPIO pins.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PinValue {
     High = 0,
@@ -227,6 +262,10 @@ impl OdroidC2GPIO {
     const GPIO_BASE_ADDR: u64 = 0xC8834000;
     const BLOCK_SIZE: usize = 4096;
 
+    /// Creates all necessary memory mappings to operate on GPIO pins of your device.
+    ///
+    /// It can fail with `OdroidC2GPIOError::OpenFdFailed` when you have no access to `/dev/mem` or `/dev/gpiomem` in your device.
+    /// Follow [rootless GPIO access](https://wiki.odroid.com/troubleshooting/gpiomem) article on ODroid wiki if you want to operate on GPIO pins without root access.
     pub fn new() -> Result<Self, OdroidC2GPIOError> {
         let is_root = Uid::current().is_root();
 
@@ -264,18 +303,32 @@ impl OdroidC2GPIO {
         Ok((handle, map))
     }
 
+    /// Creates a memory representation of one physical pin of your device.
+    ///
+    /// It can fail if you provide an invalid value for a GPIO pin.
+    /// Basically every value of `pins::Pin` struct can be safely passed to this method, but it can fail
+    /// if you transmute an arbitrary `u8` value and try to interpret it as a GPIO pin using unsafe methods.
     pub fn pin(pin: pins::Pin) -> Result<MemoryPin, OdroidC2GPIOError> {
         MemoryPin::new(pin)
     }
 
+    /// Reads a value of pin set to `Input` direction.
+    ///
+    /// The value of this call when pin is in an Output mode is undefined and should not be relied on.
     pub fn read(&self, pin: &MemoryPin) -> PinValue {
         pin.read(&self.memory)
     }
 
+    /// Sets a direction for a pin.
+    ///
+    /// Setting direction to `Input` also disables pull-up resistor on this particular pin.
     pub fn direction(&mut self, pin: &MemoryPin, direction: PinDirection) {
         pin.mode(&mut self.memory, direction);
     }
 
+    /// Writes a value to a pin set to `Output` direction.
+    ///
+    /// The behaviour of this call when pin is in an Input mode is undefined.
     pub fn write(&mut self, pin: &MemoryPin, value: PinValue) {
         pin.write(&mut self.memory, value);
     }

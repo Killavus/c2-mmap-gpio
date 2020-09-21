@@ -1,3 +1,6 @@
+/// This module is responsible for mappings between physical GPIO pins (as shown [here](https://wiki.odroid.com/odroid-c2/application_note/gpio/enhancement_40pins#tab__odroid-c2)) to internal identifiers used by GPIO driver.
+
+/// Enum representing all usable GPIO pins of ODROID-C2 device. It defines a mapping between physical pins and an internal pin identifier used by the library.
 use derive_try_from_primitive::TryFromPrimitive;
 #[repr(u8)]
 #[derive(TryFromPrimitive, Copy, Clone, Debug, Eq, PartialEq)]
