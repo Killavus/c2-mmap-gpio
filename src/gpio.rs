@@ -180,20 +180,20 @@ pub struct MemoryPin {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct PtrPin<'memory> {
+struct UnsafePtrPin<'memory> {
     memory: &'memory Memory,
     registers: PinRegisters,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct InputPin<'memory>(PtrPin<'memory>);
+pub struct InputPin<'memory>(UnsafePtrPin<'memory>);
 
 #[derive(Copy, Clone, Debug)]
-pub struct OutputPin<'memory>(PtrPin<'memory>);
+pub struct OutputPin<'memory>(UnsafePtrPin<'memory>);
 
 use core::ptr::{self, NonNull};
 
-impl<'memory> PtrPin<'memory> {
+impl<'memory> UnsafePtrPin<'memory> {
     pub fn new(pin: pins::Pin, memory: &'memory Memory) -> Result<Self, OdroidC2GPIOError> {
         Ok(Self {
             registers: PinRegisters::new(pin).ok_or(OdroidC2GPIOError::PinError)?,
@@ -392,13 +392,13 @@ impl OdroidC2GPIO {
     }
 
     pub fn input_pin(&self, pin: pins::Pin) -> Result<InputPin, OdroidC2GPIOError> {
-        let mut ptr_pin = PtrPin::new(pin, &self.memory)?;
+        let mut ptr_pin = UnsafePtrPin::new(pin, &self.memory)?;
         ptr_pin.mode(PinDirection::Input);
         Ok(InputPin(ptr_pin))
     }
 
     pub fn output_pin(&self, pin: pins::Pin) -> Result<OutputPin, OdroidC2GPIOError> {
-        let mut ptr_pin = PtrPin::new(pin, &self.memory)?;
+        let mut ptr_pin = UnsafePtrPin::new(pin, &self.memory)?;
         ptr_pin.mode(PinDirection::Output);
         Ok(OutputPin(ptr_pin))
     }
