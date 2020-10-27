@@ -437,6 +437,20 @@ impl OdroidC2GPIO {
 use embedded_hal::digital::v2::{InputPin as EHInputPin, OutputPin as EHOutputPin};
 use std::convert::Infallible;
 
+impl<'memory> InputPin<'memory> {
+    pub fn to_output(mut self) -> OutputPin<'memory> {
+        self.0.mode(PinDirection::Output);
+        OutputPin(self.0)
+    }
+}
+
+impl<'memory> OutputPin<'memory> {
+    pub fn to_input(mut self) -> InputPin<'memory> {
+        self.0.mode(PinDirection::Input);
+        InputPin(self.0)
+    }
+}
+
 impl<'memory> EHInputPin for InputPin<'memory> {
     type Error = Infallible;
 
