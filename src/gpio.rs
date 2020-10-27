@@ -33,6 +33,7 @@ pub enum OdroidC2GPIOError {
     PinError,
 }
 
+#[derive(Debug)]
 struct Memory {
     map: MmapMut,
 }
@@ -69,9 +70,9 @@ struct PinRegisters {
 
 #[derive(Copy, Clone, Debug)]
 enum PinRangeType {
-    DVRange,
-    YRange,
-    XRange,
+    DV,
+    Y,
+    X,
 }
 
 impl PinRegisters {
@@ -84,11 +85,11 @@ impl PinRegisters {
         let pin_u8 = pin as u8;
 
         if Self::DV_PINS_RANGE.contains(&pin_u8) {
-            Some(PinRangeType::DVRange)
+            Some(PinRangeType::DV)
         } else if Self::Y_PINS_RANGE.contains(&pin_u8) {
-            Some(PinRangeType::YRange)
+            Some(PinRangeType::Y)
         } else if Self::X_PINS_RANGE.contains(&pin_u8) {
-            Some(PinRangeType::XRange)
+            Some(PinRangeType::X)
         } else {
             None
         }
@@ -98,54 +99,54 @@ impl PinRegisters {
     fn range(&self) -> &'static RangeInclusive<u8> {
         use PinRangeType::*;
         match self.range_type {
-            DVRange => &Self::DV_PINS_RANGE,
-            YRange => &Self::Y_PINS_RANGE,
-            XRange => &Self::X_PINS_RANGE,
+            DV => &Self::DV_PINS_RANGE,
+            Y => &Self::Y_PINS_RANGE,
+            X => &Self::X_PINS_RANGE,
         }
     }
 
     pub fn gplev(&self) -> usize {
         use PinRangeType::*;
         (match self.range_type {
-            DVRange => 0x10E,
-            YRange => 0x111,
-            XRange => 0x11A,
+            DV => 0x10E,
+            Y => 0x111,
+            X => 0x11A,
         } * size_of::<u32>())
     }
 
     pub fn gpset(&self) -> usize {
         use PinRangeType::*;
         (match self.range_type {
-            DVRange => 0x10D,
-            YRange => 0x110,
-            XRange => 0x119,
+            DV => 0x10D,
+            Y => 0x110,
+            X => 0x119,
         } * size_of::<u32>())
     }
 
     pub fn gpfsel(&self) -> usize {
         use PinRangeType::*;
         (match self.range_type {
-            DVRange => 0x10C,
-            YRange => 0x10F,
-            XRange => 0x118,
+            DV => 0x10C,
+            Y => 0x10F,
+            X => 0x118,
         } * size_of::<u32>())
     }
 
     pub fn puen(&self) -> usize {
         use PinRangeType::*;
         (match self.range_type {
-            DVRange => 0x13A,
-            YRange => 0x149,
-            XRange => 0x14C,
+            DV => 0x13A,
+            Y => 0x149,
+            X => 0x14C,
         } * size_of::<u32>())
     }
 
     pub fn pupd(&self) -> usize {
         use PinRangeType::*;
         (match self.range_type {
-            DVRange => 0x148,
-            YRange => 0x13B,
-            XRange => 0x13E,
+            DV => 0x148,
+            Y => 0x13B,
+            X => 0x13E,
         } * size_of::<u32>())
     }
 
@@ -176,6 +177,93 @@ impl PinRegisters {
 pub struct MemoryPin {
     pin: pins::Pin,
     registers: PinRegisters,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct PtrPin<'memory> {
+    memory: &'memory Memory,
+    registers: PinRegisters,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct InputPin<'memory>(PtrPin<'memory>);
+
+#[derive(Copy, Clone, Debug)]
+pub struct OutputPin<'memory>(PtrPin<'memory>);
+
+use core::ptr::{self, NonNull};
+
+impl<'memory> PtrPin<'memory> {
+    pub fn new(pin: pins::Pin, memory: &'memory Memory) -> Result<Self, OdroidC2GPIOError> {
+        Ok(Self {
+            registers: PinRegisters::new(pin).ok_or(OdroidC2GPIOError::PinError)?,
+            memory,
+        })
+    }
+
+    pub fn mode(&mut self, direction: PinDirection) {
+        use PinDirection::*;
+
+        let mut fsel_reg = self.reg_ptr(self.registers.gpfsel());
+        let mut puen_reg = self.reg_ptr(self.registers.puen());
+
+        let pin_offset = self.registers.pin_bitmap_offset();
+        let fsel = unsafe { fsel_reg.as_mut() };
+        let puen = unsafe { puen_reg.as_mut() };
+
+        let fsel_retval = NativeEndian::read_u32(fsel);
+
+        match direction {
+            Input => {
+                NativeEndian::write_u32(fsel, fsel_retval | (1 << pin_offset));
+                let puen_retval = NativeEndian::read_u32(puen);
+                NativeEndian::write_u32(puen, puen_retval & !(1 << pin_offset));
+            }
+            Output => NativeEndian::write_u32(fsel, fsel_retval & !(1 << pin_offset)),
+        }
+    }
+
+    pub fn write(&mut self, value: PinValue) {
+        use PinValue::*;
+
+        let mut gpset_reg = self.reg_ptr(self.registers.gpset());
+        let pin_offset = self.registers.pin_bitmap_offset();
+        let gpset = unsafe { gpset_reg.as_mut() };
+        let gpset_retval = NativeEndian::read_u32(gpset);
+
+        match value {
+            High => {
+                NativeEndian::write_u32(gpset, gpset_retval | (1 << pin_offset));
+            }
+            Low => {
+                NativeEndian::write_u32(gpset, gpset_retval & !(1 << pin_offset));
+            }
+        }
+    }
+
+    pub fn read(&self) -> PinValue {
+        use PinValue::*;
+        let mut gplev_reg = self.reg_ptr(self.registers.gplev());
+        let gplev = unsafe { gplev_reg.as_mut() };
+        let gplev_retval = NativeEndian::read_u32(gplev);
+        let pin_offset = self.registers.pin_bitmap_offset();
+
+        let val = gplev_retval & (1 << pin_offset);
+
+        if val == 0 {
+            Low
+        } else {
+            High
+        }
+    }
+
+    fn reg_ptr(&self, reg_offset: usize) -> NonNull<[u8]> {
+        let base_addr: *const u8 = self.memory.as_ptr();
+        unsafe {
+            let ptr = base_addr.add(reg_offset) as *mut u8;
+            NonNull::new_unchecked(ptr::slice_from_raw_parts_mut(ptr, size_of::<u32>()))
+        }
+    }
 }
 
 impl MemoryPin {
@@ -301,6 +389,18 @@ impl OdroidC2GPIO {
         let map = unsafe { map_opts.map_mut(&handle).map_err(MapError)? };
 
         Ok((handle, map))
+    }
+
+    pub fn input_pin(&self, pin: pins::Pin) -> Result<InputPin, OdroidC2GPIOError> {
+        let mut ptr_pin = PtrPin::new(pin, &self.memory)?;
+        ptr_pin.mode(PinDirection::Input);
+        Ok(InputPin(ptr_pin))
+    }
+
+    pub fn output_pin(&self, pin: pins::Pin) -> Result<OutputPin, OdroidC2GPIOError> {
+        let mut ptr_pin = PtrPin::new(pin, &self.memory)?;
+        ptr_pin.mode(PinDirection::Output);
+        Ok(OutputPin(ptr_pin))
     }
 
     /// Creates a memory representation of one physical pin of your device.
