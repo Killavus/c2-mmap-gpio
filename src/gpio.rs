@@ -433,3 +433,37 @@ impl OdroidC2GPIO {
         pin.write(&mut self.memory, value);
     }
 }
+
+use embedded_hal::digital::v2::{InputPin as EHInputPin, OutputPin as EHOutputPin};
+use std::convert::Infallible;
+
+impl<'memory> EHInputPin for InputPin<'memory> {
+    type Error = Infallible;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        use PinValue::*;
+
+        Ok(match self.0.read() {
+            High => true,
+            Low => false,
+        })
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        self.is_high().map(|v| !v)
+    }
+}
+
+impl<'memory> EHOutputPin for OutputPin<'memory> {
+    type Error = Infallible;
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        self.0.write(PinValue::Low);
+        Ok(())
+    }
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        self.0.write(PinValue::High);
+        Ok(())
+    }
+}
