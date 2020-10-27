@@ -17,9 +17,7 @@ Core idea of this library and implementation is basically a rewrite in Rust of [
 
 ## What's missing?
 
-* Clear abstraction for Input/Output pins. Right now the library allows you to `write` even if a pin is an input pin.
-* Tests. I have little to none experience with embedded systems so I need to figure out how to do it.
-* Documentation. Since this crate has been written to solve my personal problems I did not invested a lot of time here.
+* Tests. I have little to none experience with embedded systems so I need to figure out how to do it. Contributions are welcome!
 
 ## License
 
