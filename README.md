@@ -1,7 +1,7 @@
 # ODROID-C2 GPIO bindings
 
 [![Crates.io](https://img.shields.io/crates/v/c2-mmap-gpio.svg?style=flat-square)](https://crates.io/crates/c2-mmap-gpio)
-[![](https://img.shields.io/badge/documentation-docs.rs-df3600.svg?style=flat-square)](https://docs.rs/crate/c2-mmap-gpio/0.2.0)
+[![](https://img.shields.io/badge/documentation-docs.rs-df3600.svg?style=flat-square)](https://docs.rs/crate/c2-mmap-gpio)
 
 This project provides a way to interact with [ODROID-C2](https://www.hardkernel.com/shop/odroid-c2/) GPIO pins directly through [memory mapped](https://en.wikipedia.org/wiki/Mmap) GPIO registers.
 
