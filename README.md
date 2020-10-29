@@ -1,11 +1,14 @@
 # ODROID-C2 GPIO bindings
 
+[![Crates.io](https://img.shields.io/crates/v/c2-mmap-gpio.svg?style=flat-square)](https://crates.io/crates/c2-mmap-gpio)
+[![](https://img.shields.io/badge/documentation-docs.rs-df3600.svg?style=flat-square)](https://docs.rs/crate/c2-mmap-gpio/0.2.0)
+
 This project provides a way to interact with [ODROID-C2](https://www.hardkernel.com/shop/odroid-c2/) GPIO pins directly through [memory mapped](https://en.wikipedia.org/wiki/Mmap) GPIO registers.
 
 ## Requirements
 
-* ODROID-C2 SBC, revision 2. Currently values for GPIO pins are hardcoded in the library so rev1 aren't going to work.
-* Linux OS on ODROID-C2. This library has been tested on [Ubuntu 18.04 LTS](https://www.hardkernel.com/blog-2/ubuntu-18-04-for-odroid-c2/).
+- ODROID-C2 SBC, revision 2. Currently values for GPIO pins are hardcoded in the library so rev1 aren't going to work.
+- Linux OS on ODROID-C2. This library has been tested on [Ubuntu 18.04 LTS](https://www.hardkernel.com/blog-2/ubuntu-18-04-for-odroid-c2/).
 
 ## Rationale
 
@@ -17,7 +20,7 @@ Core idea of this library and implementation is basically a rewrite in Rust of [
 
 ## What's missing?
 
-* Tests. I have little to none experience with embedded systems so I need to figure out how to do it. Contributions are welcome!
+- Tests. I have little to none experience with embedded systems so I need to figure out how to do it. Contributions are welcome!
 
 ## License
 
