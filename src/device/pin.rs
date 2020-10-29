@@ -3,7 +3,7 @@ use crate::{device::Memory, OdroidResult};
 use crate::{pin_map, OdroidC2Error};
 use byteorder::{ByteOrder, NativeEndian};
 use derive_try_from_primitive::TryFromPrimitive;
-use embedded_hal::digital::v2 as embedded_hal;
+use embedded_hal::digital::v2 as eh;
 use std::convert::Infallible;
 use std::mem::size_of;
 use std::ops::RangeInclusive;
@@ -288,7 +288,7 @@ impl<'memory> OutputPin<'memory> {
     }
 }
 
-impl<'memory> embedded_hal::InputPin for InputPin<'memory> {
+impl<'memory> eh::InputPin for InputPin<'memory> {
     type Error = Infallible;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -305,7 +305,7 @@ impl<'memory> embedded_hal::InputPin for InputPin<'memory> {
     }
 }
 
-impl<'memory> embedded_hal::OutputPin for OutputPin<'memory> {
+impl<'memory> eh::OutputPin for OutputPin<'memory> {
     type Error = Infallible;
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
