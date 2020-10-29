@@ -59,11 +59,12 @@ impl Device {
     /// **Note:** This is a potentially expensive method call - it uses synchronized primitives to keep track of lease rules.
     /// Try to initialize required pins before hot paths in your code.
     pub fn output_pin(&mut self, pin_id: pin_map::PinId) -> OdroidResult<pin::OutputPin<'_>> {
+        use pin::Direction;
         self.memory.lease_output(pin_id)?;
-        Ok(pin::OutputPin(pin::UnsafePointerPin::new(
-            pin_id,
-            &self.memory,
-        )?))
+        let mut pointer_pin = pin::UnsafePointerPin::new(pin_id, &self.memory)?;
+        pointer_pin.direction(Direction::Output);
+
+        Ok(pin::OutputPin(pointer_pin))
     }
 
     /// Lease a physical GPIO pin, ready for reading.
@@ -74,7 +75,11 @@ impl Device {
     /// **Note:** This is a potentially expensive method call - it uses synchronized primitives to keep track of lease rules.
     /// Try to initialize required pins before hot paths in your code.
     pub fn input_pin(&self, pin_id: pin_map::PinId) -> OdroidResult<pin::InputPin<'_>> {
+        use pin::Direction;
         self.memory.lease_input(pin_id)?;
+        let mut pointer_pin = pin::UnsafePointerPin::new(pin_id, &self.memory)?;
+        pointer_pin.direction(Direction::Input);
+
         Ok(pin::InputPin(pin::UnsafePointerPin::new(
             pin_id,
             &self.memory,
